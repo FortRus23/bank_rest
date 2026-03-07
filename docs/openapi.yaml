@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: Bank Cards API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/auth/register:
+    post:
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+  /api/cards/admin:
+    post:
+      summary: Create card (ADMIN)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardCreateRequest'
+      responses:
+        '200':
+          description: Card response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+    get:
+      summary: List all cards (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, BLOCKED, EXPIRED]
+        - in: query
+          name: last4
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page of cards
+  /api/cards/me:
+    get:
+      summary: List current user's cards (USER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, BLOCKED, EXPIRED]
+        - in: query
+          name: last4
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page of cards
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        fullName:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+    CardCreateRequest:
+      type: object
+      required: [userId, cardNumber, expiryDate, initialBalance]
+      properties:
+        userId:
+          type: integer
+          format: int64
+        cardNumber:
+          type: string
+        expiryDate:
+          type: string
+          example: '2029-12'
+        initialBalance:
+          type: number
+          format: double
+    CardResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        maskedNumber:
+          type: string
+        ownerName:
+          type: string
+        expiryDate:
+          type: string
+        status:
+          type: string
+        balance:
+          type: number
+          format: double
+        userId:
+          type: integer
+          format: int64

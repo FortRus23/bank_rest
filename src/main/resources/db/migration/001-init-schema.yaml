@@ -1,0 +1,207 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-users
+      author: codex
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: email
+                  type: varchar(320)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: password_hash
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: full_name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 002-create-roles
+      author: codex
+      changes:
+        - createTable:
+            tableName: roles
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+                    unique: true
+
+  - changeSet:
+      id: 003-create-user-roles
+      author: codex
+      changes:
+        - createTable:
+            tableName: user_roles
+            columns:
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: user_roles
+            columnNames: user_id, role_id
+            constraintName: pk_user_roles
+        - addForeignKeyConstraint:
+            baseTableName: user_roles
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_user_roles_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: user_roles
+            baseColumnNames: role_id
+            referencedTableName: roles
+            referencedColumnNames: id
+            constraintName: fk_user_roles_role
+            onDelete: RESTRICT
+
+  - changeSet:
+      id: 004-create-cards
+      author: codex
+      changes:
+        - createTable:
+            tableName: cards
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: encrypted_number
+                  type: varchar(512)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: owner_name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last4
+                  type: varchar(4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expiry_date
+                  type: varchar(7)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: balance
+                  type: decimal(17,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: cards
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_cards_user
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 005-seed-roles
+      author: codex
+      changes:
+        - insert:
+            tableName: roles
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1001
+              - column:
+                  name: name
+                  value: ROLE_ADMIN
+        - insert:
+            tableName: roles
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1002
+              - column:
+                  name: name
+                  value: ROLE_USER
+
+  - changeSet:
+      id: 006-seed-admin-user
+      author: codex
+      changes:
+        - insert:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1000
+              - column:
+                  name: email
+                  value: admin@bank.local
+              - column:
+                  name: password_hash
+                  value: $2a$10$6eAx47AEIbCdLD5iFEs37esaXCTQB1SP4DoKzgri5RStXJctqGrQi
+              - column:
+                  name: full_name
+                  value: System Admin
+              - column:
+                  name: enabled
+                  valueBoolean: true
+        - insert:
+            tableName: user_roles
+            columns:
+              - column:
+                  name: user_id
+                  valueNumeric: 1000
+              - column:
+                  name: role_id
+                  valueNumeric: 1001

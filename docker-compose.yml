@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: bankrest-postgres
+    environment:
+      POSTGRES_DB: bank_rest
+      POSTGRES_USER: bank_user
+      POSTGRES_PASSWORD: bank_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bank_user -d bank_rest"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
