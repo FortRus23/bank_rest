@@ -13,16 +13,11 @@ docker compose up -d
 ./mvnw spring-boot:run
 ```
 
-При старте автоматически применяются Liquibase-миграции:
-- `users`
-- `roles`
-- `user_roles`
-- `cards`
-- начальные роли `ROLE_ADMIN`, `ROLE_USER`
+При старте автоматически применяются Liquibase-миграции.
 
 ## Проверка аутентификации
 
-### Готовый admin 
+### Готовый admin
 
 - email: `admin@bank.local`
 - password: `Admin123!`
@@ -40,19 +35,17 @@ curl -X POST http://localhost:8080/api/auth/register \
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@test.com","password":"Password123"}'
+  -d '{"email":"admin@bank.local","password":"Admin123!"}'
 ```
 
 Ответ вернет JWT-токен.
 
-### Проверка защищенного endpoint
+## Основные API
 
-```bash
-curl http://localhost:8080/api/test/secure \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-Без токена endpoint вернет `401 Unauthorized`.
+- Auth: `/api/auth/*`
+- Cards admin: `/api/cards/admin*`
+- Cards me: `/api/cards/me*`
+- Transfers: `POST /api/transfers/me`
 
 ## OpenAPI
 

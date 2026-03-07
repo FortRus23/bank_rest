@@ -2,11 +2,19 @@ openapi: 3.0.3
 info:
   title: Bank Cards API
   version: 1.0.0
+  description: API for authentication, cards, and transfers.
 servers:
   - url: http://localhost:8080
+
+tags:
+  - name: Auth
+  - name: Cards
+  - name: Transfers
+
 paths:
   /api/auth/register:
     post:
+      tags: [Auth]
       summary: Register user
       requestBody:
         required: true
@@ -21,8 +29,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation/business error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/auth/login:
     post:
+      tags: [Auth]
       summary: Login
       requestBody:
         required: true
@@ -37,8 +53,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/cards/admin:
     post:
+      tags: [Cards]
       summary: Create card (ADMIN)
       security:
         - bearerAuth: []
@@ -50,13 +74,23 @@ paths:
               $ref: '#/components/schemas/CardCreateRequest'
       responses:
         '200':
-          description: Card response
+          description: Card created
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CardResponse'
+        '400':
+          description: Validation/business error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+
     get:
-      summary: List all cards (ADMIN)
+      tags: [Cards]
+      summary: List all cards with filters (ADMIN)
       security:
         - bearerAuth: []
       parameters:
@@ -68,39 +102,264 @@ paths:
         - in: query
           name: status
           schema:
-            type: string
-            enum: [ACTIVE, BLOCKED, EXPIRED]
+            $ref: '#/components/schemas/CardStatus'
         - in: query
           name: last4
           schema:
             type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
       responses:
         '200':
           description: Page of cards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardPageResponse'
+        '403':
+          description: Forbidden
+
+  /api/cards/admin/{cardId}/block:
+    patch:
+      tags: [Cards]
+      summary: Block card (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '404':
+          description: Card not found
+
+  /api/cards/admin/{cardId}/activate:
+    patch:
+      tags: [Cards]
+      summary: Activate card (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '404':
+          description: Card not found
+
+  /api/cards/admin/block-requests:
+    get:
+      tags: [Cards]
+      summary: List pending block requests (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+      responses:
+        '200':
+          description: Page of cards with blockRequested=true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardPageResponse'
+
+  /api/cards/admin/{cardId}/reject-block-request:
+    patch:
+      tags: [Cards]
+      summary: Reject block request (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated card with blockRequested=false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '404':
+          description: Card not found
+
+  /api/cards/admin/{cardId}:
+    delete:
+      tags: [Cards]
+      summary: Delete card (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Card not found
+
   /api/cards/me:
     get:
-      summary: List current user's cards (USER)
+      tags: [Cards]
+      summary: List current user's cards (USER/ADMIN)
       security:
         - bearerAuth: []
       parameters:
         - in: query
           name: status
           schema:
-            type: string
-            enum: [ACTIVE, BLOCKED, EXPIRED]
+            $ref: '#/components/schemas/CardStatus'
         - in: query
           name: last4
           schema:
             type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
       responses:
         '200':
-          description: Page of cards
+          description: Page of current user's cards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardPageResponse'
+
+  /api/cards/me/{cardId}/block-request:
+    patch:
+      tags: [Cards]
+      summary: Request block own card (USER/ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardResponse'
+        '403':
+          description: Access to foreign card denied
+
+  /api/cards/me/{cardId}/balance:
+    get:
+      tags: [Cards]
+      summary: Get own card balance (USER/ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Balance response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardBalanceResponse'
+        '403':
+          description: Access to foreign card denied
+
+  /api/transfers/me:
+    post:
+      tags: [Transfers]
+      summary: Transfer between own cards (USER/ADMIN)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '200':
+          description: Transfer completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          description: Validation/business error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Transfer between foreign cards is forbidden
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
   schemas:
     RegisterRequest:
       type: object
@@ -111,8 +370,12 @@ components:
           format: email
         password:
           type: string
+          minLength: 8
+          maxLength: 100
         fullName:
           type: string
+          maxLength: 255
+
     LoginRequest:
       type: object
       required: [email, password]
@@ -122,11 +385,13 @@ components:
           format: email
         password:
           type: string
+
     AuthResponse:
       type: object
       properties:
         token:
           type: string
+
     CardCreateRequest:
       type: object
       required: [userId, cardNumber, expiryDate, initialBalance]
@@ -136,12 +401,15 @@ components:
           format: int64
         cardNumber:
           type: string
+          example: '4111111111111234'
         expiryDate:
           type: string
           example: '2029-12'
         initialBalance:
           type: number
           format: double
+          minimum: 0
+
     CardResponse:
       type: object
       properties:
@@ -150,15 +418,90 @@ components:
           format: int64
         maskedNumber:
           type: string
+          example: '**** **** **** 1234'
         ownerName:
           type: string
         expiryDate:
           type: string
+          example: '2029-12'
         status:
-          type: string
+          $ref: '#/components/schemas/CardStatus'
         balance:
           type: number
           format: double
         userId:
           type: integer
           format: int64
+        blockRequested:
+          type: boolean
+
+    CardBalanceResponse:
+      type: object
+      properties:
+        cardId:
+          type: integer
+          format: int64
+        balance:
+          type: number
+          format: double
+
+    CardStatus:
+      type: string
+      enum: [ACTIVE, BLOCKED, EXPIRED]
+
+    TransferRequest:
+      type: object
+      required: [fromCardId, toCardId, amount]
+      properties:
+        fromCardId:
+          type: integer
+          format: int64
+        toCardId:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+
+    TransferResponse:
+      type: object
+      properties:
+        fromCardId:
+          type: integer
+          format: int64
+        toCardId:
+          type: integer
+          format: int64
+        amount:
+          type: number
+          format: double
+        fromCardBalance:
+          type: number
+          format: double
+        toCardBalance:
+          type: number
+          format: double
+
+    CardPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CardResponse'
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        size:
+          type: integer
+        number:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string

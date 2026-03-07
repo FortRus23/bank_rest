@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -93,6 +94,30 @@ class AuthServiceTest {
         assertEquals("encoded", userCaptor.getValue().getPasswordHash());
         assertEquals("User", userCaptor.getValue().getFullName());
         assertEquals(true, userCaptor.getValue().isEnabled());
+    }
+
+    @Test
+    void registerShouldCreateRoleUserWhenRoleMissing() {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("new@test.com");
+        request.setPassword("Password123");
+        request.setFullName("New User");
+
+        Role savedRole = Role.builder().id(3L).name(RoleName.ROLE_USER).build();
+        UserDetails userDetails = User.withUsername("new@test.com").password("encoded").authorities("ROLE_USER").build();
+
+        when(userRepository.existsByEmail("new@test.com")).thenReturn(false);
+        when(roleRepository.findByName(RoleName.ROLE_USER)).thenReturn(Optional.empty());
+        when(roleRepository.save(any(Role.class))).thenReturn(savedRole);
+        when(passwordEncoder.encode("Password123")).thenReturn("encoded");
+        when(userDetailsService.loadUserByUsername("new@test.com")).thenReturn(userDetails);
+        when(jwtService.generateToken(userDetails)).thenReturn("jwt-token");
+
+        AuthResponse response = authService.register(request);
+
+        assertEquals("jwt-token", response.getToken());
+        verify(roleRepository, times(1)).save(any(Role.class));
+        verify(userRepository, times(1)).save(any(com.example.bankcards.entity.User.class));
     }
 
     @Test

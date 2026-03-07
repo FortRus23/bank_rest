@@ -59,6 +59,18 @@ public class CardController {
         return cardService.activateCardByAdmin(cardId);
     }
 
+    @GetMapping("/admin/block-requests")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Page<CardResponse> getBlockRequests(@PageableDefault(size = 20) Pageable pageable) {
+        return cardService.getBlockRequests(pageable);
+    }
+
+    @PatchMapping("/admin/{cardId}/reject-block-request")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CardResponse rejectBlockRequestByAdmin(@PathVariable Long cardId) {
+        return cardService.rejectBlockRequestByAdmin(cardId);
+    }
+
     @DeleteMapping("/admin/{cardId}")
     @PreAuthorize("hasRole('ADMIN')")
     public void deleteCardByAdmin(@PathVariable Long cardId) {

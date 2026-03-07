@@ -14,5 +14,7 @@ public interface CardRepository extends JpaRepository<Card, Long>, JpaSpecificat
 
     Page<Card> findByUserIdAndLast4Containing(Long userId, String last4, Pageable pageable);
 
+    Page<Card> findByBlockRequestedTrue(Pageable pageable);
+
     boolean existsByEncryptedNumber(String encryptedNumber);
 }

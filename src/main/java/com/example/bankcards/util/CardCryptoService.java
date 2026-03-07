@@ -18,6 +18,9 @@ public class CardCryptoService {
     public String encrypt(String plaintext) {
         try {
             byte[] key = Decoders.BASE64.decode(encryptionKey);
+            if (key.length != 16 && key.length != 24 && key.length != 32) {
+                throw new IllegalStateException("Invalid AES key length for card encryption: " + key.length + " bytes");
+            }
             SecretKeySpec secretKeySpec = new SecretKeySpec(key, "AES");
             Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
             cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);

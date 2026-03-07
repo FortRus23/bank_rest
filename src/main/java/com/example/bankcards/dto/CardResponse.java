@@ -20,4 +20,5 @@ public class CardResponse {
     private CardStatus status;
     private BigDecimal balance;
     private Long userId;
+    private boolean blockRequested;
 }

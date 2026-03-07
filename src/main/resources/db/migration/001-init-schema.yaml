@@ -70,6 +70,12 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: block_requested
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
                   name: role_id
                   type: bigint
                   constraints:

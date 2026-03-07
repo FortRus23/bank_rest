@@ -57,6 +57,7 @@ public class CardService {
                 .status(CardStatus.ACTIVE)
                 .balance(request.getInitialBalance())
                 .userId(owner.getId())
+                .blockRequested(false)
                 .build();
 
         return toResponse(cardRepository.save(card));
@@ -81,6 +82,7 @@ public class CardService {
         }
 
         card.setStatus(CardStatus.BLOCKED);
+        card.setBlockRequested(false);
         return toResponse(cardRepository.save(card));
     }
 
@@ -94,6 +96,19 @@ public class CardService {
         }
 
         card.setStatus(CardStatus.ACTIVE);
+        card.setBlockRequested(false);
+        return toResponse(cardRepository.save(card));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CardResponse> getBlockRequests(Pageable pageable) {
+        return cardRepository.findByBlockRequestedTrue(pageable).map(this::toResponse);
+    }
+
+    @Transactional
+    public CardResponse rejectBlockRequestByAdmin(Long cardId) {
+        Card card = getCardById(cardId);
+        card.setBlockRequested(false);
         return toResponse(cardRepository.save(card));
     }
 
@@ -122,9 +137,11 @@ public class CardService {
         validateOwnership(card, user.getId());
         syncExpiredStatus(card);
 
-        if (card.getStatus() != CardStatus.EXPIRED) {
-            card.setStatus(CardStatus.BLOCKED);
+        if (card.getStatus() == CardStatus.EXPIRED) {
+            throw new IllegalArgumentException("Cannot request block for expired card");
         }
+
+        card.setBlockRequested(true);
 
         return toResponse(cardRepository.save(card));
     }
@@ -183,6 +200,7 @@ public class CardService {
                 .status(card.getStatus())
                 .balance(card.getBalance())
                 .userId(card.getUserId())
+                .blockRequested(card.isBlockRequested())
                 .build();
     }
 }

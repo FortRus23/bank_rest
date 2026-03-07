@@ -6,6 +6,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import com.example.bankcards.dto.CardBalanceResponse;
 import com.example.bankcards.dto.CardCreateRequest;
 import com.example.bankcards.dto.CardResponse;
@@ -18,9 +20,11 @@ import com.example.bankcards.util.CardCryptoService;
 
 import java.math.BigDecimal;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -108,6 +112,7 @@ class CardServiceTest {
                 .status(CardStatus.ACTIVE)
                 .expiryDate(YearMonth.now().plusMonths(6))
                 .balance(new BigDecimal("1000.00"))
+                .blockRequested(false)
                 .last4("1111")
                 .encryptedNumber("ENC")
                 .ownerName("Another")
@@ -117,6 +122,64 @@ class CardServiceTest {
         when(cardRepository.findById(200L)).thenReturn(Optional.of(card));
 
         assertThrows(ForbiddenOperationException.class, () -> cardService.requestBlock(200L, "user@test.com"));
+        verify(cardRepository, never()).save(any(Card.class));
+    }
+
+    @Test
+    void requestBlockShouldSetRequestedFlagButNotBlockCardImmediately() {
+        com.example.bankcards.entity.User user = com.example.bankcards.entity.User.builder()
+                .id(10L)
+                .email("user@test.com")
+                .build();
+
+        Card card = Card.builder()
+                .id(201L)
+                .userId(10L)
+                .status(CardStatus.ACTIVE)
+                .expiryDate(YearMonth.now().plusMonths(6))
+                .balance(new BigDecimal("1000.00"))
+                .blockRequested(false)
+                .last4("1234")
+                .encryptedNumber("ENC")
+                .ownerName("Owner")
+                .build();
+
+        when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(user));
+        when(cardRepository.findById(201L)).thenReturn(Optional.of(card));
+        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CardResponse response = cardService.requestBlock(201L, "user@test.com");
+
+        assertEquals(CardStatus.ACTIVE, response.getStatus());
+        assertTrue(response.isBlockRequested());
+        verify(cardRepository).save(eq(card));
+    }
+
+    @Test
+    void requestBlockShouldThrowForExpiredCard() {
+        com.example.bankcards.entity.User user = com.example.bankcards.entity.User.builder()
+                .id(10L)
+                .email("user@test.com")
+                .build();
+
+        Card card = Card.builder()
+                .id(202L)
+                .userId(10L)
+                .status(CardStatus.ACTIVE)
+                .expiryDate(YearMonth.now().minusMonths(1))
+                .balance(new BigDecimal("1000.00"))
+                .blockRequested(false)
+                .last4("1234")
+                .encryptedNumber("ENC")
+                .ownerName("Owner")
+                .build();
+
+        when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(user));
+        when(cardRepository.findById(202L)).thenReturn(Optional.of(card));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> cardService.requestBlock(202L, "user@test.com"));
+        assertEquals("Cannot request block for expired card", ex.getMessage());
         verify(cardRepository, never()).save(any(Card.class));
     }
 
@@ -133,6 +196,25 @@ class CardServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> cardService.activateCardByAdmin(300L));
         assertEquals("Cannot activate expired card", ex.getMessage());
         verify(cardRepository, never()).save(any(Card.class));
+    }
+
+    @Test
+    void blockCardByAdminShouldSetBlockedAndClearRequestFlag() {
+        Card card = Card.builder()
+                .id(301L)
+                .status(CardStatus.ACTIVE)
+                .blockRequested(true)
+                .expiryDate(YearMonth.now().plusMonths(1))
+                .build();
+
+        when(cardRepository.findById(301L)).thenReturn(Optional.of(card));
+        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CardResponse response = cardService.blockCardByAdmin(301L);
+
+        assertEquals(CardStatus.BLOCKED, response.getStatus());
+        assertFalse(response.isBlockRequested());
+        verify(cardRepository).save(eq(card));
     }
 
     @Test
@@ -159,5 +241,52 @@ class CardServiceTest {
         assertEquals(new BigDecimal("777.77"), response.getBalance());
         assertEquals(CardStatus.EXPIRED, card.getStatus());
         verify(cardRepository).save(eq(card));
+    }
+
+    @Test
+    void getBlockRequestsShouldReturnOnlyRequestedCards() {
+        Card requested = Card.builder()
+                .id(500L)
+                .userId(10L)
+                .status(CardStatus.ACTIVE)
+                .blockRequested(true)
+                .expiryDate(YearMonth.now().plusMonths(2))
+                .balance(new BigDecimal("1.00"))
+                .last4("0001")
+                .ownerName("User One")
+                .encryptedNumber("ENC1")
+                .build();
+
+        when(cardRepository.findByBlockRequestedTrue(PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(requested)));
+
+        var page = cardService.getBlockRequests(PageRequest.of(0, 20));
+
+        assertEquals(1, page.getTotalElements());
+        assertTrue(page.getContent().get(0).isBlockRequested());
+    }
+
+    @Test
+    void rejectBlockRequestByAdminShouldClearRequestedFlag() {
+        Card requested = Card.builder()
+                .id(501L)
+                .userId(10L)
+                .status(CardStatus.ACTIVE)
+                .blockRequested(true)
+                .expiryDate(YearMonth.now().plusMonths(2))
+                .balance(new BigDecimal("10.00"))
+                .last4("0002")
+                .ownerName("User Two")
+                .encryptedNumber("ENC2")
+                .build();
+
+        when(cardRepository.findById(501L)).thenReturn(Optional.of(requested));
+        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CardResponse response = cardService.rejectBlockRequestByAdmin(501L);
+
+        assertFalse(response.isBlockRequested());
+        assertEquals(CardStatus.ACTIVE, response.getStatus());
+        verify(cardRepository).save(eq(requested));
     }
 }
