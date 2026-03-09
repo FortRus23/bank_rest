@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-block-requested-to-cards
+      author: codex
+      preConditions:
+        onFail: MARK_RAN
+        not:
+          columnExists:
+            tableName: cards
+            columnName: block_requested
+      changes:
+        - addColumn:
+            tableName: cards
+            columns:
+              - column:
+                  name: block_requested
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
